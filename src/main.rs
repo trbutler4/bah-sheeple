@@ -1,5 +1,7 @@
 use actix_web::{get, web, App, HttpServer, Responder};
 
+mod oauth_client;
+
 #[get("/")]
 async fn bah() -> impl Responder {
     format!("bahhhhhhh")
