@@ -39,23 +39,29 @@ async fn start(data: web::Data<AppState>) -> impl Responder {
 
 #[get("/oauth/callback")]
 async fn oauth_callback() -> impl Responder {
-    println!("Callback triggered");
-    format!("callback triggered")
+    format!("account connected")
 }
 
 #[actix_web::main] // or #[tokio::main]
 async fn main() -> std::io::Result<()> {
     let app_base_url = String::from("https://proud-maggot-initially.ngrok-free.app");
-    let twitter_api_base_url = String::from("https://api.x.com");
-    let auth_url = format!("{}/oauth/request_token", twitter_api_base_url);
+    let auth_url = format!("https://twitter.com/i/oauth2/authorize");
     let redirect_url = format!("{}/oauth/callback", app_base_url);
-    let token_url = format!("{}/oauth/access_token", twitter_api_base_url);
+    let token_url = format!("https://x.api.com/2/oauth/request_token");
+
+    // Load environment variables from .env file
+    dotenv::dotenv().ok();
+
+    // Read client ID from .env file
+    let client_id = std::env::var("CLIENT_ID").expect("CLIENT_ID must be set in .env file");
+    let client_secret =
+        std::env::var("CLIENT_SECRET").expect("CLIENT_SECRET must be set in .env file");
 
     // Create an OAuth2 client by specifying the client ID, client secret, authorization URL and
     // token URL.
     let client = BasicClient::new(
-        ClientId::new("client_id".to_string()),
-        Some(ClientSecret::new("client_secret".to_string())),
+        ClientId::new(client_id),
+        Some(ClientSecret::new(client_secret)),
         AuthUrl::new(auth_url).unwrap(),
         Some(TokenUrl::new(token_url).unwrap()),
     )
