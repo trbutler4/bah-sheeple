@@ -6,6 +6,7 @@ use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
     Scope, TokenUrl,
 };
+use rand;
 use std::sync::Mutex;
 
 mod utils;
@@ -24,9 +25,10 @@ async fn start(data: web::Data<AppState>) -> impl Responder {
     let (auth_url, csrf_token) = client
         .authorize_url(CsrfToken::new_random)
         // Set the desired scopes.
-        .add_scope(Scope::new(utils::encode_string("tweet.read".to_string())))
-        .add_scope(Scope::new(utils::encode_string("tweet.write".to_string())))
-        .add_scope(Scope::new(utils::encode_string("users.read".to_string())))
+        .add_scope(Scope::new("tweet.read".to_string()))
+        .add_scope(Scope::new("tweet.write".to_string()))
+        .add_scope(Scope::new("users.read".to_string()))
+        .add_scope(Scope::new("offline.access".to_string()))
         // Set the PKCE code challenge.
         .set_pkce_challenge(pkce_challenge)
         .url();
@@ -40,6 +42,14 @@ async fn start(data: web::Data<AppState>) -> impl Responder {
 #[get("/oauth/callback")]
 async fn oauth_callback() -> impl Responder {
     format!("account connected")
+}
+
+#[get("/bah")]
+async fn bah() -> impl Responder {
+    let mut result = String::from("ba");
+    let num_h = rand::random::<u8>() % 15 + 4;
+    result.extend(std::iter::repeat('h').take(num_h as usize));
+    format!("{}", result)
 }
 
 #[actix_web::main] // or #[tokio::main]
@@ -75,6 +85,7 @@ async fn main() -> std::io::Result<()> {
             }))
             .service(start)
             .service(oauth_callback)
+            .service(bah)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
