@@ -6,8 +6,9 @@ use oauth2::{
     AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
     Scope, TokenUrl,
 };
-use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 use std::sync::Mutex;
+
+mod utils;
 
 struct AppState {
     client: Mutex<BasicClient>,
@@ -18,16 +19,14 @@ async fn start(data: web::Data<AppState>) -> impl Responder {
     // Generate a PKCE challenge.
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
-    const FRAGMENT: &AsciiSet = &CONTROLS.add(b' ').add(b'"').add(b'<').add(b'>').add(b'`');
-
     // Generate the full authorization URL.
     let client = &data.client.lock().unwrap();
     let (auth_url, csrf_token) = client
         .authorize_url(CsrfToken::new_random)
         // Set the desired scopes.
-        .add_scope(Scope::new("tweet.read".to_string()))
-        .add_scope(Scope::new("tweet.write".to_string()))
-        .add_scope(Scope::new("users.read".to_string()))
+        .add_scope(Scope::new(utils::encode_string("tweet.read".to_string())))
+        .add_scope(Scope::new(utils::encode_string("tweet.write".to_string())))
+        .add_scope(Scope::new(utils::encode_string("users.read".to_string())))
         // Set the PKCE code challenge.
         .set_pkce_challenge(pkce_challenge)
         .url();
