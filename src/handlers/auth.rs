@@ -4,6 +4,7 @@ use oauth2::{
 };
 use serde::Deserialize;
 
+use crate::services::openai::OpenAIService;
 use crate::AppState;
 
 use oauth2::reqwest::async_http_client;
@@ -84,7 +85,15 @@ pub async fn oauth_callback(
         }
     }
 
-    let message = String::from("bahhhhhhh");
+    // generating tweet with OpenAI
+    let openai_service = OpenAIService::new();
+    let message = match openai_service.generate_tweet().await {
+        Ok(tweet) => tweet,
+        Err(e) => {
+            println!("Failed to generate tweet: {}", e);
+            return format!("Failed to generate tweet: {}", e);
+        }
+    };
 
     let twitter_api_url = "https://api.twitter.com/2/tweets";
 
