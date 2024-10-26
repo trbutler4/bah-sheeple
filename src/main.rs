@@ -6,6 +6,8 @@ use actix_web::{web, App, HttpServer};
 use oauth2::basic::BasicClient;
 use oauth2::AccessToken;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tokio::time;
 
 use crate::config::Config;
 use crate::handlers::{auth, tweets};
@@ -26,6 +28,25 @@ async fn main() -> std::io::Result<()> {
 
     let shared_token = Arc::new(Mutex::new(None));
     let shared_token_clone = shared_token.clone();
+
+    // app data that will use in both the server and background task
+    let app_data = web::Data::new(AppState {
+        client: Mutex::new(client.clone()),
+        verifier: shared_verifier_clone.clone(),
+        access_token: shared_token_clone.clone(),
+    });
+
+    let app_data_clone = app_data.clone();
+    tokio::spawn(async move {
+        let mut interval = time::interval(Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            match handlers::tweets::generate_and_post_tweet(app_data_clone.clone()).await {
+                Ok(result) => println!("Scheduled tweet result: {}", result),
+                Err(e) => println!("Scheduled tweet error: {}", e),
+            }
+        }
+    });
 
     println!("Starting server on: http://localhost:8080");
 

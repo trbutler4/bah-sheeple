@@ -13,30 +13,26 @@ pub async fn bah() -> impl Responder {
 
 #[post("/tweet")]
 pub async fn post_tweet(data: web::Data<AppState>) -> impl Responder {
+    match generate_and_post_tweet(data).await {
+        Ok(result) => result,
+        Err(e) => format!("Error: {}", e),
+    }
+}
+
+pub async fn generate_and_post_tweet(
+    data: web::Data<AppState>,
+) -> Result<String, Box<dyn std::error::Error>> {
+    // Extract the existing tweet posting logic from post_tweet handler
     let access_token = {
-        let token_gaurd = data.access_token.lock().unwrap();
-        println!("Current token state: {:?}", token_gaurd.is_some());
-        match token_gaurd.as_ref() {
-            Some(token) => {
-                println!("Found token: {}", token.secret());
-                token.clone()
-            }
-            None => {
-                println!("No access token found - user needs to authenticate");
-                return format!("Not authenticated. Please authorize first.");
-            }
+        let token_guard = data.access_token.lock().unwrap();
+        match token_guard.as_ref() {
+            Some(token) => token.clone(),
+            None => return Err("Not authenticated".into()),
         }
     };
 
-    // Generate tweet
     let openai_service = OpenAIService::new();
-    let message = match openai_service.generate_tweet().await {
-        Ok(tweet) => tweet,
-        Err(e) => {
-            println!("Failed to generate tweet: {}", e);
-            return format!("Failed to generate tweet: {}", e);
-        }
-    };
+    let message = openai_service.generate_tweet().await?;
 
     // Post to Twitter
     let twitter_api_url = "https://api.twitter.com/2/tweets";
@@ -51,19 +47,14 @@ pub async fn post_tweet(data: web::Data<AppState>) -> impl Responder {
         .header("Content-Type", "application/json")
         .body(tweet_data.to_string())
         .send()
-        .await
-        .unwrap();
+        .await?;
 
     let status = response.status();
-    let body = response.text().await.unwrap_or_default();
+    let body = response.text().await?;
 
     if status.is_success() {
-        println!("Tweet posted successfully!");
-        println!("Response: {}", body);
-        format!("Posted tweet: {}", message)
+        Ok(format!("Posted tweet: {}", message))
     } else {
-        println!("Failed to post tweet - Status: {}", status);
-        println!("Error response: {}", body);
-        format!("Failed to post tweet: {} - {}", status, body)
+        Err(format!("Failed to post tweet: {} - {}", status, body).into())
     }
 }
