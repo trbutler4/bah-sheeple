@@ -4,6 +4,7 @@ mod services;
 
 use actix_web::{web, App, HttpServer};
 use oauth2::basic::BasicClient;
+use oauth2::AccessToken;
 use std::sync::{Arc, Mutex};
 
 use crate::config::Config;
@@ -12,6 +13,7 @@ use crate::handlers::{auth, tweets};
 pub struct AppState {
     client: Mutex<BasicClient>,
     verifier: Arc<Mutex<Option<oauth2::PkceCodeVerifier>>>,
+    access_token: Arc<Mutex<Option<AccessToken>>>,
 }
 
 #[actix_web::main]
@@ -22,6 +24,9 @@ async fn main() -> std::io::Result<()> {
     let shared_verifier = Arc::new(Mutex::new(None));
     let shared_verifier_clone = shared_verifier.clone();
 
+    let shared_token = Arc::new(Mutex::new(None));
+    let shared_token_clone = shared_token.clone();
+
     println!("Starting server on: http://localhost:8080");
 
     HttpServer::new(move || {
@@ -29,9 +34,11 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(AppState {
                 client: Mutex::new(client.clone()),
                 verifier: shared_verifier_clone.clone(),
+                access_token: shared_token_clone.clone(),
             }))
             .service(auth::start)
             .service(auth::oauth_callback)
+            .service(tweets::post_tweet)
             .service(tweets::bah)
     })
     .bind(("127.0.0.1", 8080))?

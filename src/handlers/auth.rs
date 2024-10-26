@@ -65,7 +65,11 @@ pub async fn oauth_callback(
         .await;
 
     match &token_result {
-        Ok(r) => println!("got standard token response"),
+        Ok(token) => {
+            println!("Storing access token: {}", token.access_token().secret());
+            *data.access_token.lock().unwrap() = Some(token.access_token().clone());
+            return format!("Authentication successful! You can now use /tweet to post tweets.");
+        }
         Err(e) => {
             match e {
                 RequestTokenError::ServerResponse(err) => {
@@ -83,47 +87,5 @@ pub async fn oauth_callback(
             }
             return format!("Failed to get token");
         }
-    }
-
-    // generating tweet with OpenAI
-    let openai_service = OpenAIService::new();
-    let message = match openai_service.generate_tweet().await {
-        Ok(tweet) => tweet,
-        Err(e) => {
-            println!("Failed to generate tweet: {}", e);
-            return format!("Failed to generate tweet: {}", e);
-        }
-    };
-
-    let twitter_api_url = "https://api.twitter.com/2/tweets";
-
-    let tweet_data = serde_json::json!({
-        "text": message
-    });
-
-    let client = reqwest::Client::new();
-    let response = client
-        .post(twitter_api_url)
-        .header(
-            "Authorization",
-            format!("Bearer {}", token_result.unwrap().access_token().secret()),
-        )
-        .header("Content-Type", "application/json")
-        .body(tweet_data.to_string())
-        .send()
-        .await
-        .unwrap();
-
-    let status = response.status();
-    let body = response.text().await.unwrap_or_default();
-
-    if status.is_success() {
-        println!("Tweet posted successfully!");
-        println!("Response: {}", body);
-        return format!("Posted tweet: {}", message);
-    } else {
-        println!("Failed to post tweet - Status: {}", status);
-        println!("Error response: {}", body);
-        return format!("Failed to post tweet: {} - {}", status, body);
     }
 }
